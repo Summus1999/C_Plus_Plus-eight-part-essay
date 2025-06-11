@@ -43,3 +43,46 @@ C++的多态分为静态多态和动态多态。
 - recursive_timed_mutex：可重入且支持超时
 - shared_mutex：读写锁，支持两种访问模式，适用于读多写少的场景。
 - shared_timed_mutex：shared_mutex基础上增加了超时功能
+
+### C++移动语义move的作用？
+
+move作用主要是可以将一个左值转换成右值引用，可以调用C++11右值引用的拷贝构造函数，在对象拷贝的时候，在运行时，move函数可以减少资源创建和释放。
+
+```c++
+#include <utility>
+int main() {
+    int x = 42;
+    int y = std::move(x); // 将 x 转换为右值引用，不会进行拷贝操作
+    return 0;
+}
+```
+
+### move和forward的区别？
+
+- move:将对象无条件转换为右值引用，启用移动语义.无论接受左值还是右值，都返回右值引用。实质是静态类型转换：static_cast<T&&>(t)
+
+```c++
+std::string s1 = "Hello";
+std::string s2 = std::move(s1);  // 移动构造，s1 变为空
+```
+
+- forward:在模板中完美转发参数，保持原始值类别（左值/右值）。仅在模板中使用（通常是通用引用 T&&）。根据模板参数T的类型决定转发为左值还是右值.
+
+```c++
+template <typename T, typename Arg>
+T create(Arg&& arg) {
+    return T(std::forward<Arg>(arg));  // 保持 arg 的原始值类别
+}
+
+std::string s = "Test";
+auto a = create<std::string>(s);       // 传递左值 → 调用拷贝构造
+auto b = create<std::string>("Temp");  // 传递右值 → 调用移动构造
+```
+
+### C++的栈容器的内部是什么样的，内存是否连续？
+
+C++的栈stack不是独立容器，是基于其他的序列容器的。默认是使用deque双端队列实现。
+
+- deque内存连续，由多个固定大小内存块组成
+- vector：完全连续，是开辟了一大块大的内存块用于使用
+- list：非连续，双休链表节点分散存储
