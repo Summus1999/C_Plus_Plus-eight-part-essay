@@ -600,3 +600,13 @@ void write_data() {
     // 写入数据
 }
 ```
+
+### malloc和new的具体实现？
+
+- malloc是C标准库函数，其核心是通过操作系统提供的系统调用管理堆内存。使用分配的内存块头部存储元数据，通过链表链接所有空闲块。
+- new是C++运算符，其行为包含内存分配和对象构造两阶段，内存分配阶段调用全局operator new函数，默认实现内部调用malloc。对象构造阶段用placement new在已分配内存上调用构造函数。
+
+```c++
+void* memory = operator new(sizeof(MyClass));  // 调用malloc分配内存
+MyClass* obj = new (memory) MyClass();    // 在memory地址调用构造函数
+```
