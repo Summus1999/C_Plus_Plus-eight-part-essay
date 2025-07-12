@@ -786,3 +786,113 @@ weak_ptr 通过控制块中的​弱引用计数​感知对象状态：
 
 - 左值：具有持久存储位置的对象，可被取地址（&操作符），通常有变量名，可多次使用。可出现在赋值左侧，生命周期在作用域内有效。
 - 右值：临时对象或字面量，无持久存储位置，不可取地址，通常为一次性使用的值。仅能出现在赋值右侧，生命周期在表达式结束时结束。
+
+### C++14的新特性？
+
+C++14主要是对一些C++11的已有特性做了扩展。
+
+- 支持更灵活的类型推导，C++14支持decltype(auto),这个auto仅仅作为占位符使用。
+- constexpr支持更加广泛的语法和应用，如可以使用局部变量。
+- 支持更加通用的lambda表达式，允许表达式内部使用auto参数，处理泛型类型更方便。
+- 支持返回类型推导
+  
+```c++
+auto add(int x,int y)//推导出来是int类型的返回值
+{
+    return x+y;
+}
+int main()
+{
+    int num1=1;
+    int num2=10;
+    int num3=add(num1,num2);
+    cout<<num3;
+    return 0;
+}
+```
+
+### C++17的新特性？
+
+- 结构化绑定：允许通过一个简单的声明将元组或其他数据结构的成员绑定到变量。
+- if初始化：在 if 和 switch 语句中可以直接初始化变量。
+
+```c++
+int num4 = 100;
+    if (int a = 1 < num4)//C++17支持if初始化
+    {
+        cout << "C++17 yes" << endl;
+    }
+    return 0;
+```
+
+- 折叠表达式：支持更灵活的模板元编程
+- constexpr lambda 表达式：允许 lambda 表达式在编译时进行求值。
+
+```c++
+int main() {
+    // 定义一个 constexpr lambda 表达式，用于计算两个整数的和
+    constexpr auto add = [](int x, int y) constexpr {
+        return x + y;
+    };
+
+    // 在编译时调用 lambda 表达式
+    constexpr int result = add(3, 4);
+
+    // 输出结果
+    std::cout << "Result: " << result << std::endl;
+
+    return 0;
+}
+```
+
+- std::optional：提供了一种可选值的容器，用于解决空指针的问题。
+
+```c++
+// 一个可能返回无效值的函数，使用 optional 来安全地表示结果
+optional<int> divide(int numerator, int denominator)
+{
+    if (denominator == 0)
+    {
+        return nullopt; // 返回无值状态
+    }
+    return numerator / denominator;
+}
+
+int main()
+{
+    auto result1 = divide(10, 2);
+    if (result1.has_value())
+    {
+        cout << "Result of 10 / 2: " << result1.value() << endl;
+    }
+    else
+    {
+        cout << "Division by zero error." << endl;
+    }
+
+    auto result2 = divide(5, 0); // 除以零，应该失败
+    if (result2)
+    {
+        // 另一种检查方式
+        cout << "Result of 5 / 0: " << *result2 << endl;
+    }
+    else
+    {
+        cout << "Division by zero error." << endl;
+    }
+
+    return 0;
+}
+```
+
+- std::variant：提供了一种可变的类型安全的联合。
+- filesystem：提供了一个现代化的、面向对象的文件系统操作 API。
+
+### 如何让对象只能产生在堆上？（存疑）
+
+将对象的operator new设置为私有的。这个时候使⽤new尝试在堆上分配内存无法编译通过，就将内存的分配限制了只能分配在栈上。
+
+### 如何让对象只能产生在栈上？（存疑）
+
+将对象的**析构函数设置为私有**的，因为在栈上分配对象的时候，编译器会自动调用对象的构造函数和析构函数，因此此时如果在栈上分配内存会编译报错，就将内存限制在了只能分配在堆上。
+
