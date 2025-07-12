@@ -636,3 +636,148 @@ C++20采用**无栈协程模型**，挂起时将上下文（局部变量、寄�
 - 编译器通过名字修饰将函数名、参数类型/数量/顺序编码为唯一符号。C语言仅用函数名标识符号。
 - 异常处理与运行时类型信息(RTTI)：编译器在二进制中插入异常处理框架​（如try/catch的栈回退逻辑）和RTTI数据结构​（用于dynamic_cast和typeid），以支持面向对象特性。C语言没有。
 - 函数调用约定与对象模型：C++成员函数调用隐含传递this指针（通常通过寄存器或栈），而C函数无此机制。C++在main()前/后插入全局/静态对象的构造/析构代码，而C程序仅按代码顺序执行。
+
+### 多继承把子类指针转为父类指针和单继承的区别在哪里？
+
+多继承和单继承下子类指针向父类指针的转换存在本质区别，核心差异在于**内存布局的复杂性和指针偏移机制**。
+
+- 单继承：子类对象的内存布局为父类部分在前，子类新增部分在后。子类指针Derived*转换为父类指针Base*时，​地址不变。因父类部分位于对象起始位置，无需调整指针。子类与父类共享一个虚表指针，位于对象起始处。
+
+```c++
+class Base { int x; };
+class Derived : public Base { int y; };
+```
+
+- 多继承：子类对象**按继承顺序排列**多个父类，​每个父类占据独立内存区域。转换到第一个父类​（如Base1*）时地址不变（与单继承相同）。转换到非第一个父类​（如Base2*）时，​编译器自动添加偏移量，指向Base2在子类中的起始位置。​每个含虚函数的父类在子类中**独立维护虚表指针**。
+
+```c++
+class Base1 { int a; };
+class Base2 { int b; };
+class Derived : public Base1, public Base2 { int c; };
+```
+
+### 有的类把析构函数声明为虚函数，什么场景下会用到？
+
+将析构函数声明为虚函数的核心目的是**解决基类指针指向派生类对象时的资源正确释放问题**，避免内存泄漏和未定义行为。
+
+- 多态基类（通过基类指针删除派生类对象）：当基类指针指向派生类对象，且基类析构函数非虚时，delete该指针仅调用基类析构函数，派生类的析构函数不被执行，导致派生类资源（如动态内存、文件句柄等）泄漏。
+  
+```c++
+class Base {
+public:
+    virtual ~Base() {}  // 虚析构函数
+};
+class Derived : public Base {
+public:
+    ~Derived() override { /* 释放派生类资源 */ }
+};
+
+Base* obj = new Derived();
+delete obj;  // 正确调用顺序：Derived::~Derived() → Base::~Base()
+```
+
+- 抽象类（含纯虚函数的接口类）:强制派生类实现析构逻辑，确保多态销毁安全。抽象类本身不可实例化，但需为纯虚析构函数提供定义（空实现即可）。
+
+```c++
+class AbstractBase {
+public:
+    virtual ~AbstractBase() = 0;  // 纯虚析构
+};
+AbstractBase::~AbstractBase() {}   // 必须定义
+
+class Impl : public AbstractBase {
+public:
+    ~Impl() override { /* 资源释放 */ }
+};
+```
+
+- 工厂模式返回基类指针:工厂函数返回基类指针（实际指向派生类对象），需通过基类指针统一管理对象生命周期
+
+```c++
+class Factory {
+public:
+    static Base* createObject() { return new Derived(); }
+};
+
+Base* obj = Factory::createObject();
+delete obj;  // 依赖虚析构正确释放Derived资源
+```
+
+- 多层级继承结构：若中间层基类（非最顶层）可能被多态使用，其析构函数也需为虚函数，以确保析构链完整执行。
+  
+```c++
+class Base { virtual ~Base(); };
+class Middle : public Base { virtual ~Middle(); }; // 必须为虚
+class Derived : public Middle { ~Derived(); };
+
+Base* obj = new Derived();
+delete obj;  // 调用顺序：Derived → Middle → Base
+```
+
+### unique指针在编译期如何保证是真的unique？
+
+unique_ptr实现真的unique是靠的以下几个机制：
+
+- **禁用拷贝语义**(核心)：unique_ptr 内部将拷贝构造函数和拷贝赋值运算符声明为 = delete，直接禁止复制行为。
+- 仅支持移动语义：unique_ptr 允许通过移动操作转移所有权，转移后原指针变为 nullptr。临时右值可隐式移动。
+
+```c++
+std::unique_ptr<int> p3 = std::unique_ptr<int>(new int(10)); // 合法
+```
+
+- 编译器的静态检查:类型系统强制约束,如当尝试拷贝时，编译器检查到调用了被删除的函数，直接报错。
+
+### 移动语义如何使用？
+
+移动语义是C++11引入的核心特性，通过转移资源所有权而非复制资源，显著提升程序性能。绑定临时对象（右值），标记可被“窃取”资源的对象。使用move将左值强制转换为右值引用，触发移动语义。需定义移动构造函数和移动赋值运算符，并标记noexcept以保证异常安全。
+
+```c++
+std::string s1 = "Hello";
+std::string s2 = std::move(s1);  // s1的资源被转移给s2，s1变为空
+```
+
+### push back和emplace back的区别？
+
+两者均为容器尾部添加元素的方法，但**底层机制**和**适用场景**不同。
+
+- push_back:先构造临时对象，再拷贝/移动到容器中.
+- emplace_back:​直接在容器内存中构造对象，避免临时对象创建和拷贝/移动。减少了构造临时对象这一步，性能更优。不支持初始化列表，存在隐式类型转换风险。
+
+### deque和vector的区别？内存布局有啥区别？
+
+- queue:​分段连续存储，由多个固定大小的内存块（chunks）组成，通过中控器（指针数组）管理逻辑连续性。动态分配新内存块，只需更新中控器的指针，​无需移动现有元素。扩容成本更低。无法保证整体内存连续。需高频头尾操作时使用queue。
+- vector:​单块连续内存，元素**物理地址连续**,容量不足时，重新分配一块更大的连续内存,严格连续，支持直接传递首地址。操作集中在尾部。
+
+### weak_ptr如何解决循环引用？
+
+weak_ptr 是 C++11 引入的智能指针，专为配合 shared_ptr 解决循环引用问题而设计，同时提供安全的对象访问机制。循环引用指两个或多个对象通过 shared_ptr 相互持有，导致引用计数无法归零，对象无法释放。
+weak_ptr 通过​**非拥有式观察**打破循环。
+```c++
+class A {
+    std::shared_ptr<B> b_ptr;
+};
+class B {
+    /*出现循环引用*/
+    //std::shared_ptr<A> a_ptr;
+    /*修改为 weak_ptr解决循环引用*/
+    std::weak_ptr<A> a_ptr;  
+};
+```
+
+### weak_ptr如何升级为shared_ptr？
+
+weak_ptr 通过 lock() 方法安全升级为 shared_ptr，确保访问对象时其未被销毁。
+
+```c++
+std::weak_ptr<A> weak_a = ...;  // 从某处获取 weak_ptr
+if (auto shared_a = weak_a.lock()) {  // 尝试升级
+    shared_a->do_something();       // 对象存活，安全访问
+} else {
+    // 对象已销毁，避免悬垂指针
+}
+```
+
+weak_ptr 通过控制块中的​弱引用计数​感知对象状态：
+​构造时​：复制 shared_ptr 的控制块指针，弱引用计数 +1。
+​析构时​：弱引用计数 -1，若弱引用计数和强引用计数均为 0，释放控制块。
+​**lock() 时**​：检查控制块中的强引用计数，决定是否构造新 shared_ptr。
