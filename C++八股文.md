@@ -491,4 +491,112 @@ void wrapper(T&& arg) {
 }
 ```
 
-### 
+### C++什么时候生成默认拷贝构造函数？
+
+默认拷贝构造函数（执行浅拷贝）在以下四种情况下会被编译器自动生成：
+
+- 类成员包含有拷贝构造函数的类对象
+- 类继承自有拷贝构造函数的基类
+- 类包含虚函数
+- ​类存在虚继承
+
+### C++类型推导为什么会有额外的开销？
+
+C++的类型推导之所以会有额外的开销，是因为以下几个原因：
+
+- 1.推导规则复杂：auto会忽略初始化表达式的顶层const、引用和数组退化。需编译器多步分析。decltype的值类别敏感，需根据表达式是变量、函数调用或带括号的左值，分别应用不同规则推导。
+- 2.模板实例化负担：在模板中使用auto或decltype推导返回值时，可能触发多次模板实例化。
+- 3.​意外的值拷贝:若初始化表达式返回引用，但auto未显式声明引用，会进行值拷贝。
+
+### C++如何搜索链接到so动态库中的符号的？
+
+C++链接到动态库的过程：
+
+- 1. ​动态库加载与初始化：操作系统通过 mmap 将库文件映射到进程地址空间，动态链接器解析库的依赖关系，递归加载所有依赖库。
+- 2. 符号查找顺序：动态链接器按固定顺序解析符号，先加载主程序符号表，再进行广度搜索逐层加载动态库，最后加载全局符号表
+- 3. 使用符号绑定机制：符号绑定机制分为立即绑定和延迟绑定，延迟绑定通过全局偏移表实现符号的解析。
+
+### vector与普通数组的区别？vector扩容如何影响复杂度？
+
+vector和数组的区别在于：vector是动态大小，能够自动管理堆内存，有边界检查，并提供了一些功能接口。vector扩容时会将老的元素复制到新开辟的内存空间中，频繁扩容会导致性能下滑。
+
+### 进程同步的技术有哪些？
+
+进程同步技术主要用于协调多个进程对共享资源的访问，避免竞态条件（Race Condition）和数据不一致问题。
+
+- 互斥锁：通过锁定机制确保同一时刻只有一个进程能访问临界区资源。适用于简单共享资源的**独占访问**。
+
+```c++
+std::mutex mtx;
+void critical_section() {
+    std::lock_guard<std::mutex> lock(mtx); // 自动加锁
+    // 访问共享资源
+} // 自动解锁
+```
+
+- ​信号量：通过计数器控制**多个进程**对共享资源的访问权限。适用于资源池的管理。
+
+```c++
+#include <semaphore>
+std::counting_semaphore<10> sem(3); // 允许3个进程同时访问
+void access_resource() {
+    sem.acquire(); // 获取信号量
+    // 使用资源
+    sem.release(); // 释放信号量
+}
+```
+
+- 条件变量：允许进程等待特定条件成立后再继续执行，需与互斥锁配合使用。通过wait()释放锁并阻塞，通过notify_one()或notify_all()唤醒等待进程。
+
+```c++
+std::mutex mtx;
+std::condition_variable cv;
+bool data_ready = false;
+
+void consumer() {
+    std::unique_lock<std::mutex> lock(mtx);
+    cv.wait(lock, []{ return data_ready; }); // 等待条件满足
+    // 消费数据
+}
+```
+
+- 屏障：强制多个进程在指定同步点等待，直到所有进程到达后才继续执行。主要适用于并行计算中分阶段任务等场景。
+
+```c++
+#include <barrier>
+std::barrier sync_point(5); // 等待5个进程
+
+void worker() {
+    // 阶段1任务
+    sync_point.arrive_and_wait(); // 同步点
+    // 阶段2任务
+}
+```
+
+- 原子操作：通过硬件指令保证对单个变量的操作不可分割，避免数据竞争。主要适用于高频计数器、无锁数据结构等场景。
+
+```c++
+#include <atomic>
+std::atomic<int> counter(0);
+
+void increment() {
+    counter.fetch_add(1, std::memory_order_relaxed);
+}
+```
+
+- 读写锁：允许多个进程同时读取共享资源，但**写入时需独占访问**。适用于读多写少的共享数据（如配置信息）。
+
+```c++
+#include <shared_mutex>
+std::shared_mutex rw_mutex;
+
+void read_data() {
+    std::shared_lock lock(rw_mutex); // 共享锁（可并发读）
+    // 读取数据
+}
+
+void write_data() {
+    std::unique_lock lock(rw_mutex); // 独占锁（互斥写）
+    // 写入数据
+}
+```
