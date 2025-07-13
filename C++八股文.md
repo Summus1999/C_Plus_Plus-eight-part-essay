@@ -1034,3 +1034,76 @@ int main() {
 
 - 内联函数：**编译**阶段展开，由编译器进行语法检查和优化，有严格的类型检查。参数仅仅求一次值。如果函数过于复杂会被编译器优化视为普通函数进行调用。
 - 宏：**预处理**阶段就进行文本替换，无类型检查，
+
+### vector,list,unordered_map,map迭代器失效问题如何解决？
+
+- vector：push_back、insert 触发扩容 → ​所有迭代器失效。erase 删除元素 → ​被删位置及之后迭代器失效。
+解决方法：
+
+```c++
+/*更新迭代器*/
+for (auto it = vec.begin(); it != vec.end(); ) {
+    if (*it % 2 == 0) {
+        it = vec.erase(it); // 返回下一元素迭代器
+    } else {
+        ++it;
+    }
+}
+```
+
+- list:erase 仅使被删节点的迭代器失效，其他节点不受影响
+解决方法：
+
+```c++
+/*删除时跳过失效节点*/
+for (auto it = lst.begin(); it != lst.end(); ) {
+    if (*it == 3) {
+        it = lst.erase(it); // 直接更新迭代器
+    } else {
+        ++it;
+    }
+}
+/*使用后置自增(推荐，主要是方便)*/
+for (auto it = lst.begin(); it != lst.end(); ) {
+    if (*it == 3) {
+        lst.erase(it++); // 先传it位置，再自增
+    } else {
+        ++it;
+    }
+}
+```
+
+- unordered_map:插入可能触发 ​Rehash → 所有迭代器失效,删除仅使被删节点失效。
+解决方法：
+
+```c++
+/*插入后重新获取迭代器*/
+unordered_map<int, string> umap;
+auto it = umap.find(key);
+if (it == umap.end()) {
+    umap.insert({key, val}); // 插入可能触发Rehash
+    it = umap.find(key);     // 重新获取迭代器
+}
+/*删除时更新迭代器*/
+for (auto it = umap.begin(); it != umap.end(); ) {
+    if (it->second == "delete") {
+        it = umap.erase(it);
+    } else {
+        ++it;
+    }
+}
+```
+
+- map：只有被删除元素的迭代器失效，其他迭代器安全。
+解决方法：
+
+```c++
+/*更新迭代器*/
+for (auto it = m.begin(); it != m.end(); ) {
+    if (it->first == key) {
+        it = m.erase(it); // 返回下一节点迭代器
+    } else {
+        ++it;
+    }
+}
+```
