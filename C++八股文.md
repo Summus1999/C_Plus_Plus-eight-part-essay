@@ -1219,3 +1219,122 @@ C++异常处理的核心开销来源：
 /*方法2*/
 # ifndef
 ```
+
+## C++深拷贝和浅拷贝的区别？
+
+​深拷贝​​和 ​浅拷贝是对象复制的两种核心机制，主要区别在于对**动态资源**（如堆内存）的处理方式。
+
+- 浅拷贝：仅复制对象的成员变量值，多个对象共享同一块动态内存，易导致悬垂指针、双重释放​的问题，性能开销小。
+
+```c++
+class Shallow {
+public:
+    int* data;
+    Shallow(int val) { data = new int(val); }
+    // 默认拷贝构造函数（浅拷贝）
+    Shallow(const Shallow& other) : data(other.data) {}
+    ~Shallow() { delete data; }
+};
+
+int main() {
+    Shallow obj1(10);
+    Shallow obj2 = obj1; // 浅拷贝
+    // obj1 和 obj2 的 data 指向同一内存
+    // 此处代码就是删除了obj1导致后续触发了double free的错误
+    delete obj1.data;
+    cout<<"obj2.data: "<<*obj2.data<<endl;
+    return 0;
+}
+```
+
+- 深拷贝：复制成员变量值，并为指针指向的资源分配新内存，复制内容。但是需手动实现拷贝构造函数和赋值运算符重载。优点是**资源独立，无共享风险**。
+
+```c++
+#include <iostream>
+using namespace std;
+
+class Deep {
+public:
+    int* data;
+
+    // 默认构造函数
+    Deep() : data(new int(0)) {}  // 可指定默认值，如 0
+
+    Deep(int val) : data(new int(val)) {}
+
+    // 拷贝构造函数（深拷贝）
+    Deep(const Deep& other) {
+        data = new int(*other.data);
+    }
+
+    // 赋值运算符重载（深拷贝）
+    Deep& operator=(const Deep& other) {
+        if (this != &other) {
+            delete data;
+            data = new int(*other.data);
+        }
+        return *this;
+    }
+
+    ~Deep() {
+        delete data;
+    }
+};
+
+int main() {
+    Deep d1(5);
+    Deep d2(d1); // 拷贝构造
+    Deep d3;     // 现在可以调用默认构造函数
+    d3 = d1;     // 赋值操作
+    //验证是否正确实现深拷贝
+    cout << "d1: " << *d1.data << endl;
+    delete d1.data;
+    cout << "d3: " << *d3.data << endl;
+    return 0;
+}
+```
+
+## SFINAE是什么？
+
+SFINAE是 C++ 模板编程中的核心机制，用于在编译期根据类型特性选择或禁用特定的模板重载。其核心思想是：​当模板参数替换导致无效代码时，编译器不会报错，而是静默忽略该模板候选，继续**尝试其他匹配的重载版本**。
+
+适应场景：
+
+- ​条件启用模板函数
+
+```c++
+template <typename T>
+typename std::enable_if<std::is_integral<T>::value, void>::type
+process(T val) { /* 处理整型 */ }
+
+template <typename T>
+typename std::enable_if<std::is_floating_point<T>::value, void>::type
+process(T val) { /* 处理浮点型 */ }
+```
+
+- 检测类型成员或方法:结合 decltype 和 std::void_t 检查类型是否支持特定操作
+
+```c++
+template <typename, typename = void>
+struct has_serialize : std::false_type {};
+
+template <typename T>
+struct has_serialize<T, std::void_t<decltype(std::declval<T>().serialize())>> 
+    : std::true_type {};
+```
+
+- 重载决策优化:在多个模板重载中，SFINAE 帮助编译器选择最匹配的版本，避免歧义。
+
+```C++
+void process(double val);  // 普通函数
+template <typename T>     // 模板函数
+void process(T val);
+```
+
+## C++中Static全局变量，全局变量，和extern变量的区别
+
+全局变量、static全局变量和extern变量这三者的区别在于**作用域**、链接属性和**存储方式**的不同：
+
+- 全局变量：作用于整个程序，存储于静态存储区
+- static全局变量：仅在该源文件内可见，对其他文件不可见，仅可被内部链接，存储于静态存储区。不同文件内可以同名。
+- extern变量：仅在声明所在文件内有效，不分配存储空间，生命周期是跟随实际定义的变量。不会进行初始化。
