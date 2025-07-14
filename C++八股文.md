@@ -1111,3 +1111,79 @@ for (auto it = m.begin(); it != m.end(); ) {
     }
 }
 ```
+
+### C++空的class，会主动提供哪些函数？
+
+C++创建了一个空的class，会在特定的情况下提供一些函数。
+
+- ​缺省构造函数​：声明无参对象时会提供。
+- 缺省拷贝构造函数：对象拷贝初始化时候会触发
+- 缺省析构函数：对象声明周期结束时会触发
+- 缺省赋值运算符：对象复制操作时会触发
+
+```c++
+/*编译器主动构造函数的场景*/
+class MyClass {
+public:
+    // 缺省构造函数
+    MyClass() {}
+
+    // 拷贝构造函数（缺省形式）
+    MyClass(const MyClass& other) {}
+
+    // 缺省析构函数
+    ~MyClass() = default;
+
+    // 缺省赋值运算符（由编译器生成）
+    MyClass& operator=(const MyClass& other) = default;
+};
+
+int main() {
+    MyClass obj1;           // 使用缺省构造函数创建对象
+    MyClass obj2 = obj1;    // 使用拷贝构造函数创建对象
+    MyClass obj3;
+    obj3 = obj1;            // 使用赋值运算符
+    return 0;
+}
+```
+
+C+++11新增的移动语义，使得编译器会自动构造移动构造函数和移动赋值运算符。
+
+- 移动构造函数：对象通过右值初始化触发
+- 移动赋值运算符：对象通过右值赋值触发
+
+```c++
+#include <iostream>
+
+class MyClass {
+public:
+    int a;
+    int b;
+
+    // 缺省构造函数
+    MyClass() : a(0), b(0) {}
+
+    // 拷贝构造函数
+    MyClass(const MyClass& other) = default;
+
+    // 移动构造函数
+    MyClass(MyClass&& other) noexcept = default;
+
+    // 拷贝赋值运算符
+    MyClass& operator=(const MyClass& other) = default;
+
+    // 移动赋值运算符
+    MyClass& operator=(MyClass&& other) noexcept = default;
+
+    // 析构函数
+    ~MyClass() = default;
+};
+
+int main() {
+    MyClass obj1;
+    MyClass obj2 = std::move(obj1); // 调用移动构造函数
+    MyClass obj3;
+    obj3 = std::move(obj2);         // 调用移动赋值运算符
+    return 0;
+}
+```
