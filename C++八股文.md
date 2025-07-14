@@ -1338,3 +1338,48 @@ void process(T val);
 - 全局变量：作用于整个程序，存储于静态存储区
 - static全局变量：仅在该源文件内可见，对其他文件不可见，仅可被内部链接，存储于静态存储区。不同文件内可以同名。
 - extern变量：仅在声明所在文件内有效，不分配存储空间，生命周期是跟随实际定义的变量。不会进行初始化。
+
+## 完美转发？
+
+完美转发是 C++11 引入的核心特性，用于在函数模板中无损传递参数的原始值类别（左值/右值）和常量性，避免不必要的拷贝并正确触发移动语义。
+
+- 通用引用：统一接收任意类型的参数
+- 引用折叠规则：编译器根据传入参数的类型自动应用折叠规则
+- forward语义还原：恢复参数的原始值类别。
+
+```c++
+#include <iostream>
+#include <utility>  // std::forward, std::move
+
+// 处理左值的函数重载
+void process(int& x) {
+    std::cout << "Lvalue: " << x << "\n";
+}
+
+// 处理右值的函数重载
+void process(int&& x) {
+    std::cout << "Rvalue: " << x << "\n";
+}
+
+// 通用转发函数模板（使用万能引用 T&&）
+template <typename T>
+void forwarder(T&& arg) {
+    // 使用 std::forward<T> 保留参数的值类别（左值或右值）
+    process(std::forward<T>(arg));
+}
+
+int main() {
+    int a = 10;
+
+    // 调用 forwarder 并传递一个左值
+    forwarder(a);          // 输出: Lvalue: 10
+
+    // 调用 forwarder 并传递一个右值（字面量）
+    forwarder(20);         // 输出: Rvalue: 20
+
+    // 调用 forwarder 并传递一个被 std::move 转换为右值的变量
+    forwarder(std::move(a)); // 输出: Rvalue: 10
+
+    return 0;
+}
+```
