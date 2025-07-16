@@ -1531,3 +1531,45 @@ Lambada表达式的捕获规则主要有：值捕获，引用捕获，隐式捕�
 - 引用捕获：使用引用捕获时，lambda 表达式会获取外部作用域的局部变量的引用。这意味着lambda表达式内部对变量的操作会影响到原始变量。
 - 隐式捕获：通过在捕获列表中使用 = 或 & 符号，可以实现隐式捕获。使用= 捕获外部作用域的所有变量的副本，而使用 & 捕获所有变量的引用。
 - 显式捕获：在捕获列表中，可以指定要捕获的特定变量，并且可以同时使用值捕获和引用捕获。
+
+## delete和free的区别?
+
+delete和free虽然都用于释放动态内存，但它们在设计目标、行为机制和适用场景上存在本质区别。
+
+- delete:C++​关键字，专用于释放new分配的内存。支持释放单个对象（delete ptr）或数组（delete[] ptr）。
+- free:用于释放malloc/calloc/realloc分配的内存，仅接受指针参数（free(ptr)）
+
+```c++
+/*delete和free的区别*/
+#include <iostream>
+#include <cstdlib>
+using namespace std;
+
+class MyClass
+{
+public:
+    MyClass() { cout << "Constructor called!" << endl; }
+    ~MyClass() { cout << "Destructor called!" << endl; }
+    static void print() { cout << "Hello from MyClass" << endl; }
+};
+
+int main()
+{
+    // 使用 new 分配内存并调用构造函数
+    auto* obj1 = new MyClass();
+    MyClass::print();
+    // 使用 delete：调用析构函数并释放内存
+    delete obj1;
+    cout << "-----------------------------" << endl;
+    // 使用 malloc 仅分配原始内存，不会调用构造函数
+    auto* obj2 = (MyClass*)malloc(sizeof(MyClass));
+    new(obj2) MyClass(); // 手动调用构造函数（定位 new）
+    MyClass::print();
+
+    // 手动调用析构函数
+    obj2->~MyClass();
+    // 使用 free 释放内存
+    free(obj2);
+    return 0;
+}
+```
