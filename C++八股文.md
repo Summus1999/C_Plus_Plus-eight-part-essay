@@ -1573,3 +1573,37 @@ int main()
     return 0;
 }
 ```
+
+## c++重载和重写的区别?
+
+重载是编译时多态，​参数列表必须不同，作用域是同一作用域。
+
+```c++
+class Calculator {
+public:
+    int add(int a, int b) { return a + b; }          // 重载：参数类型不同
+    double add(double a, double b) { return a + b; } // 重载：参数类型不同
+    void print(int x) { cout << "Int: " << x; }      // 重载：参数数量不同
+    void print(int x, string s) { cout<< s << ": " << x; }
+};
+```
+
+重写是​运行时多态​，通过虚表（vtable）在运行时决定调用哪个函数。参数列表、返回类型必须与基类虚函数完全一致，可以使用override显式标记。
+
+```c++
+class Animal {
+public:
+    virtual void sound() { cout << "Animal sound" << endl; } // 基类虚函数
+};
+
+class Dog : public Animal {
+public:
+    void sound() override { cout << "Dog barks" << endl; }   // 重写基类虚函数
+};
+
+int main() {
+    Animal* animal = new Dog();
+    animal->sound(); // 输出 "Dog barks"（运行时多态）
+    delete animal;
+}
+```
